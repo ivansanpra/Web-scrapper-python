@@ -13,6 +13,7 @@ from src.utils.config import Config
 from src.scrapers.base_scraper import BaseScraper
 # Import specific scrapers here when implemented
 from src.scrapers.chedraui_scraper import ChedrauiScraper
+from src.scrapers.walmart_scraper import WalmartScraper
 
 
 def parse_args():
@@ -26,7 +27,7 @@ def parse_args():
     parser.add_argument(
         '--target',
         type=str,
-        choices=['all', 'example', 'chedraui'],  # Added 'chedraui' option
+        choices=['all', 'example', 'chedraui', 'walmart'],  # Added 'walmart' option
         default='all',
         help='Scraper target to run'
     )
@@ -46,8 +47,15 @@ def parse_args():
         '--products',
         type=str,
         nargs='+',
-        default=['aguacate', 'jitomate'],
+        default=['aguacate', 'jitomate', 'manzana'],
         help='Product types to search for (e.g., aguacate jitomate manzana)'
+    )
+    parser.add_argument(
+        '--method',
+        type=str,
+        choices=['api', 'html', 'both'],
+        default='api',
+        help='Method to use for scraping: api, html, or both'
     )
     return parser.parse_args()
 
@@ -70,11 +78,16 @@ def main():
     if args.target == 'all':
         logger.info("Running all scrapers")
         # Run the Chedraui scraper
-        run_chedraui_scraper(args.output, args.products)
+        run_chedraui_scraper(args.output, args.products, args.method)
+        # Run the Walmart scraper
+        run_walmart_scraper(args.output, args.products, args.method)
         # Add other scrapers here when implemented
     elif args.target == 'chedraui':
         logger.info("Running Chedraui scraper")
-        run_chedraui_scraper(args.output, args.products)
+        run_chedraui_scraper(args.output, args.products, args.method)
+    elif args.target == 'walmart':
+        logger.info("Running Walmart scraper")
+        run_walmart_scraper(args.output, args.products, args.method)
     elif args.target == 'example':
         logger.info("Running example scraper")
         # Example implementation:
@@ -100,21 +113,23 @@ def main():
     return 0
 
 
-def run_chedraui_scraper(output_format, product_types=None):
+def run_chedraui_scraper(output_format, product_types=None, method='api'):
     """
     Run the Chedraui scraper.
     
     Args:
         output_format: Format to save the data (json, csv, excel)
         product_types: List of product types to search for (e.g., ["aguacate", "jitomate", "manzana"])
+        method: Method to use for scraping (api, html, or both)
     """
     logger = logging.getLogger('web_scraper')
-    product_list = product_types or ["aguacate", "jitomate"]
+    product_list = product_types or ["aguacate", "jitomate", "manzana"]
     logger.info(f"Initializing Chedraui scraper for products: {', '.join(product_list)}")
     
     try:
-        # Initialize the scraper with the specified product types
-        scraper = ChedrauiScraper(product_types=product_list)
+        # Initialize the scraper with the specified product types and method
+        use_api = (method == 'api' or method == 'both')
+        scraper = ChedrauiScraper(product_types=product_list, use_api=use_api)
         
         # Log the search URLs
         logger.info("Search URLs:")
@@ -135,6 +150,45 @@ def run_chedraui_scraper(output_format, product_types=None):
         logger.info("Chedraui scraping completed successfully")
     except Exception as e:
         logger.error(f"Error running Chedraui scraper: {e}", exc_info=True)
+
+
+def run_walmart_scraper(output_format, product_types=None, method='api'):
+    """
+    Run the Walmart Mexico scraper.
+    
+    Args:
+        output_format: Format to save the data (json, csv, excel)
+        product_types: List of product types to search for (e.g., ["platano", "manzana", "aguacate"])
+        method: Method to use for scraping (api, html, or both)
+    """
+    logger = logging.getLogger('web_scraper')
+    product_list = product_types or ["platano", "manzana", "aguacate"]
+    logger.info(f"Initializing Walmart Mexico scraper for products: {', '.join(product_list)}")
+    
+    try:
+        # Initialize the scraper with the specified product types and method
+        use_api = (method == 'api' or method == 'both')
+        scraper = WalmartScraper(product_types=product_list, use_api=use_api)
+        
+        # Log the search URLs
+        logger.info("Search URLs:")
+        for product in product_list:
+            search_url = f"{scraper.base_url}/search?q={product}" 
+            logger.info(f" - {product}: {search_url}")
+        
+        # Run any setup
+        scraper.setup()
+        
+        # Execute the scraping
+        logger.info(f"Scraping Walmart Mexico for prices of: {', '.join(product_list)}")
+        data = scraper.scrape()
+        
+        # Save the results
+        scraper.save_results(data, output_format)
+        
+        logger.info("Walmart Mexico scraping completed successfully")
+    except Exception as e:
+        logger.error(f"Error running Walmart Mexico scraper: {e}", exc_info=True)
 
 
 if __name__ == "__main__":
