@@ -1,0 +1,130 @@
+@startuml Web Scraper Class Diagram
+
+' Define the style
+skinparam classAttributeIconSize 0
+skinparam backgroundColor white
+skinparam ArrowColor #666666
+skinparam ClassBackgroundColor #f8f8f8
+skinparam ClassBorderColor #666666
+
+' BaseScraper Class
+abstract class BaseScraper {
+  # base_url: str
+  # headers: Dict[str, str]
+  # session: requests.Session
+  # logger: logging.Logger
+  + __init__(base_url: str, headers: Optional[Dict[str, str]])
+  + setup(): void
+  + get_page(url: str, params: Optional[Dict[str, Any]]): requests.Response
+  + parse_html(response: requests.Response): BeautifulSoup
+  + {abstract} scrape(): Any
+  + clean_data(data: Any): Any
+  + save_data(data: Any, filename: str): void
+}
+
+' WalmartScraper Class
+class WalmartScraper {
+  # product_types: List[str]
+  # use_api: bool
+  # graphql_api_url: str
+  # direct_api_url: str
+  + __init__(base_url: str, headers: Optional[Dict[str, str]], product_types: Optional[List[str]], use_api: bool)
+  + make_request(url, method, data, headers, params, allow_redirects): Optional[Response]
+  + search_product_direct_api(query: str): List[Dict[str, Any]]
+  + search_product_graphql_api(query: str, page: int, limit: int): List[Dict[str, Any]]
+  + extract_products_from_search_page(query: str): List[Dict[str, Any]]
+  + search_product_html(query: str): List[Dict[str, Any]]
+  + search_product(query: str): List[Dict[str, Any]]
+  + extract_price(price_text: str): float
+  + scrape(product_types: Optional[List[str]]): Dict[str, List[Dict[str, Any]]]
+  + save_results(data: Dict[str, List[Dict[str, Any]]], output_format: str): void
+}
+
+' ChedrauiScraper Class
+class ChedrauiScraper {
+  # product_types: List[str]
+  # use_api: bool
+  # api_url: str
+  + __init__(base_url: str, headers: Optional[Dict[str, str]], product_types: Optional[List[str]], use_api: bool)
+  + search_product(query: str): List[Dict[str, Any]]
+  + search_product_api(query: str): List[Dict[str, Any]]
+  + search_product_html(query: str): List[Dict[str, Any]]
+  + extract_price(price_text: str): float
+  + parse_sample_file(file_path: str): BeautifulSoup
+  + scrape_from_sample(file_path: str): Dict[str, List[Dict[str, Any]]]
+  + _extract_products(soup: BeautifulSoup, query: str): List[Dict[str, Any]]
+  + scrape(product_types: Optional[List[str]]): Dict[str, List[Dict[str, Any]]]
+  + save_results(data: Dict[str, List[Dict[str, Any]]], output_format: str): void
+}
+
+' Config Class
+class Config {
+  + USER_AGENT: str
+  + REQUEST_TIMEOUT: int
+  + REQUEST_DELAY: float
+  + MAX_RETRIES: int
+  + USE_PROXY: bool
+  + PROXY_URL: str
+  + LOG_LEVEL: str
+  + LOG_FILE: str
+  + RAW_DATA_PATH: str
+  + PROCESSED_DATA_PATH: str
+  + {static} setup_logging(): logging.Logger
+}
+
+' Helpers Module
+class Helpers << (M,orchid) >> {
+  + {static} sanitize_filename(filename: str): str
+  + {static} save_to_json(data: Union[List, Dict], filepath: Union[str, Path], pretty: bool): void
+  + {static} save_to_csv(data: List[Dict], filepath: Union[str, Path], headers: Optional[List[str]]): void
+  + {static} save_to_excel(data: List[Dict], filepath: Union[str, Path], headers: Optional[List[str]]): void
+  + {static} extract_text(element: Optional[Tag]): str
+  + {static} extract_attribute(element: Optional[Tag], attribute: str): str
+  + {static} rate_limit(delay: float): void
+}
+
+' Runner Classes
+class RunWalmartScraper << (S,green) >> {
+  + {static} parse_args(): argparse.Namespace
+  + {static} main(): int
+}
+
+class RunChedrauiScraper << (S,green) >> {
+  + {static} parse_args(): argparse.Namespace
+  + {static} main(): int
+}
+
+class TestWithSample << (S,green) >> {
+  + {static} parse_args(): argparse.Namespace
+  + {static} main(): int
+}
+
+class Main << (S,green) >> {
+  + {static} parse_args(): argparse.Namespace
+  + {static} main(): int
+}
+
+' Relationships
+BaseScraper <|-- WalmartScraper
+BaseScraper <|-- ChedrauiScraper
+
+WalmartScraper ..> Config : uses
+ChedrauiScraper ..> Config : uses
+
+WalmartScraper ..> Helpers : uses
+ChedrauiScraper ..> Helpers : uses
+
+RunWalmartScraper ..> WalmartScraper : creates
+RunChedrauiScraper ..> ChedrauiScraper : creates
+TestWithSample ..> WalmartScraper : may use
+TestWithSample ..> ChedrauiScraper : may use
+
+Main ..> WalmartScraper : creates
+Main ..> ChedrauiScraper : creates
+Main ..> Config : uses
+
+' Data flow
+WalmartScraper --> "JSON/CSV/Excel Files" : writes
+ChedrauiScraper --> "JSON/CSV/Excel Files" : writes
+
+@enduml 

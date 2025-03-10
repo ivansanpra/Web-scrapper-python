@@ -1,0 +1,95 @@
+@startuml Web Scraper Component Diagram
+
+' Define the style
+skinparam componentStyle uml2
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam backgroundColor white
+skinparam ArrowColor #666666
+
+' Main packages
+package "Web Scraper" {
+    component [main.py] as Main
+    note right of Main: Main entry point of the application
+
+    ' Scrapers Package
+    package "src/scrapers" {
+        component [base_scraper.py] as BaseScraper
+        note top of BaseScraper: Abstract base class for all scrapers
+        
+        component [walmart_scraper.py] as WalmartScraper
+        note right of WalmartScraper: Scraper for Walmart Mexico website
+        
+        component [chedraui_scraper.py] as ChedrauiScraper
+        note right of ChedrauiScraper: Scraper for Chedraui website
+    }
+    
+    ' Utils Package
+    package "src/utils" {
+        component [config.py] as Config
+        note right of Config: Configuration settings from environment variables
+        
+        component [helpers.py] as Helpers
+        note right of Helpers: Utility functions for scrapers
+    }
+    
+    ' Runner Scripts
+    package "Runner Scripts" {
+        component [run_walmart_scraper.py] as RunWalmart
+        note right of RunWalmart: Script to run the Walmart scraper directly
+        
+        component [run_chedraui_scraper.py] as RunChedraui
+        note right of RunChedraui: Script to run the Chedraui scraper directly
+        
+        component [test_with_sample.py] as TestWithSample
+        note right of TestWithSample: Script for testing scrapers with sample HTML files
+    }
+    
+    ' Data Storage
+    package "Data" {
+        component [Raw Data] as RawData
+        component [Processed Data] as ProcessedData
+    }
+}
+
+' External Dependencies
+package "External Libraries" {
+    component [requests] as Requests
+    component [BeautifulSoup] as BS4
+    component [pandas] as Pandas
+}
+
+' Relationships and Dependencies
+BaseScraper <|-- WalmartScraper : extends
+BaseScraper <|-- ChedrauiScraper : extends
+BaseScraper --> Requests : uses
+BaseScraper --> BS4 : uses
+
+Main --> WalmartScraper : creates/uses
+Main --> ChedrauiScraper : creates/uses
+Main --> Config : uses
+
+WalmartScraper --> Helpers : uses
+ChedrauiScraper --> Helpers : uses
+WalmartScraper --> Config : uses
+ChedrauiScraper --> Config : uses
+
+RunWalmart --> WalmartScraper : creates/uses
+RunChedraui --> ChedrauiScraper : creates/uses
+TestWithSample --> WalmartScraper : may use
+TestWithSample --> ChedrauiScraper : may use
+
+WalmartScraper --> ProcessedData : writes to
+ChedrauiScraper --> ProcessedData : writes to
+WalmartScraper ..> Pandas : for data processing
+ChedrauiScraper ..> Pandas : for data processing
+
+' Add sequence numbers to show the typical flow
+Main -[#green]-> Config : 1. Load configuration
+Main -[#green]-> WalmartScraper : 2. Create scraper
+WalmartScraper -[#green]-> Requests : 3. Make HTTP requests
+WalmartScraper -[#green]-> BS4 : 4. Parse HTML
+WalmartScraper -[#green]-> Helpers : 5. Process data
+WalmartScraper -[#green]-> ProcessedData : 6. Save results
+
+@enduml 

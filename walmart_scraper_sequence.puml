@@ -1,0 +1,158 @@
+@startuml Walmart Scraper Sequence Diagram
+
+' Define the style
+skinparam SequenceBoxBackgroundColor #f8f8f8
+skinparam SequenceBoxBorderColor #666666
+skinparam ParticipantBackgroundColor #f8f8f8
+skinparam ParticipantBorderColor #666666
+skinparam ArrowColor #666666
+
+' Participants
+actor User
+participant "run_walmart_scraper.py" as Runner
+participant "WalmartScraper" as Scraper
+participant "Config" as Config
+participant "Requests/Session" as HTTP
+participant "BeautifulSoup" as BS4
+participant "Helpers" as Helpers
+database "Walmart Website" as Website
+database "Data Files" as Data
+
+' Sequence
+User -> Runner: Run script with parameters
+activate Runner
+
+Runner -> Config: setup_logging()
+activate Config
+Config --> Runner: logger
+deactivate Config
+
+Runner -> Scraper: create(product_types, use_api=True)
+activate Scraper
+Scraper -> Config: Get configuration
+Scraper --> Runner: scraper instance
+deactivate Scraper
+
+Runner -> Scraper: scrape()
+activate Scraper
+
+loop For each product type
+    Scraper -> Scraper: search_product(product)
+    activate Scraper #DarkSalmon
+    
+    ' Try Direct API first
+    Scraper -> Scraper: search_product_direct_api(product)
+    activate Scraper #LightBlue
+    Scraper -> HTTP: make_request(direct_api_url)
+    activate HTTP
+    HTTP -> Website: GET request
+    activate Website
+    Website --> HTTP: Response
+    deactivate Website
+    HTTP --> Scraper: response
+    deactivate HTTP
+    
+    alt Direct API successful
+        Scraper -> Scraper: Process response
+        Scraper --> Scraper: products
+    else Direct API failed
+        ' Try GraphQL API next
+        Scraper -> Scraper: search_product_graphql_api(product)
+        activate Scraper #LightGreen
+        Scraper -> HTTP: make_request(graphql_api_url)
+        activate HTTP
+        HTTP -> Website: POST request
+        activate Website
+        Website --> HTTP: Response
+        deactivate Website
+        HTTP --> Scraper: response
+        deactivate HTTP
+        
+        alt GraphQL API successful
+            Scraper -> Scraper: Process response
+            Scraper --> Scraper: products
+        else GraphQL API failed
+            ' Try search page extraction
+            Scraper -> Scraper: extract_products_from_search_page(product)
+            activate Scraper #LightYellow
+            Scraper -> HTTP: make_request(search_url)
+            activate HTTP
+            HTTP -> Website: GET request
+            activate Website
+            Website --> HTTP: Response
+            deactivate Website
+            HTTP --> Scraper: response
+            deactivate HTTP
+            
+            Scraper -> BS4: parse HTML
+            activate BS4
+            BS4 --> Scraper: soup
+            deactivate BS4
+            
+            Scraper -> Scraper: Extract products from HTML
+            
+            alt Search page extraction successful
+                Scraper --> Scraper: products
+            else Search page extraction failed
+                ' Fall back to HTML scraping
+                Scraper -> Scraper: search_product_html(product)
+                activate Scraper #Pink
+                Scraper -> HTTP: make_request(search_url)
+                activate HTTP
+                HTTP -> Website: GET request
+                activate Website
+                Website --> HTTP: Response
+                deactivate Website
+                HTTP --> Scraper: response
+                deactivate HTTP
+                
+                Scraper -> BS4: parse HTML
+                activate BS4
+                BS4 --> Scraper: soup
+                deactivate BS4
+                
+                Scraper -> Scraper: Extract products using CSS selectors
+                Scraper --> Scraper: products
+                deactivate Scraper
+            end
+            deactivate Scraper
+        end
+        deactivate Scraper
+    end
+    
+    Scraper --> Scraper: products for this product type
+    deactivate Scraper #LightBlue
+    deactivate Scraper #DarkSalmon
+end
+
+' Save results in different formats
+Scraper -> Helpers: save_to_json(results)
+activate Helpers
+Helpers -> Data: Write JSON file
+Helpers --> Scraper: success
+deactivate Helpers
+
+alt Output format includes CSV
+    Scraper -> Helpers: save_to_csv(results)
+    activate Helpers
+    Helpers -> Data: Write CSV file
+    Helpers --> Scraper: success
+    deactivate Helpers
+end
+
+alt Output format includes Excel
+    Scraper -> Helpers: save_to_excel(results)
+    activate Helpers
+    Helpers -> Data: Write Excel file
+    Helpers --> Scraper: success
+    deactivate Helpers
+end
+
+Scraper --> Runner: complete results
+deactivate Scraper
+
+Runner -> Runner: Print summary of results
+Runner --> User: Display results summary and file paths
+deactivate Runner
+
+@enduml 
